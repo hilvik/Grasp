@@ -22,19 +22,42 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email, password) => {
+  const signIn = async (email, password, rememberMe = false) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: {
+        // If remember me is checked, session persists for 30 days
+        // Otherwise, session ends when browser closes
+        persistSession: rememberMe
+      }
     })
     
     if (error) throw error
+    
+    // Check if profile exists, create if not
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', data.user.id)
+        .single()
+      
+      if (!profile) {
+        await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: data.user.id,
+            display_name: email.split('@')[0],
+          })
+      }
+    }
     
     router.push('/profile')
     return data
   }
 
-  const signUp = async (email, password, displayName) => {
+  const signUp = async (email, password) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -42,16 +65,18 @@ export function useAuth() {
     
     if (error) throw error
 
-    // Create user profile
+    // Create user profile after signup
     if (data.user) {
       const { error: profileError } = await supabase
         .from('user_profiles')
         .insert({
           user_id: data.user.id,
-          display_name: displayName,
+          display_name: email.split('@')[0],
         })
       
-      if (profileError) throw profileError
+      if (profileError && profileError.code !== '23505') {
+        console.error('Profile creation error:', profileError)
+      }
     }
     
     return data
@@ -80,14 +105,29 @@ export function useAuth() {
   const getProfile = async () => {
     if (!user) return null
     
-    const { data, error } = await supabase
+    let { data: profile, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('user_id', user.id)
       .single()
     
-    if (error && error.code !== 'PGRST116') throw error
-    return data
+    // If profile doesn't exist, create it
+    if (error && error.code === 'PGRST116') {
+      const { data: newProfile, error: createError } = await supabase
+        .from('user_profiles')
+        .insert({
+          user_id: user.id,
+          display_name: user.email?.split('@')[0] || 'User',
+        })
+        .select()
+        .single()
+      
+      if (createError) throw createError
+      return newProfile
+    }
+    
+    if (error) throw error
+    return profile
   }
 
   return {

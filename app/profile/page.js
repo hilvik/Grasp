@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2, MapPin, BookOpen, Heart } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 const INTERESTS = [
   'Technology', 'Business', 'Health', 'Science', 
@@ -19,12 +20,13 @@ const INTERESTS = [
 ]
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, getProfile, updateProfile } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [isNewProfile, setIsNewProfile] = useState(false)
   
   const [displayName, setDisplayName] = useState('')
   const [locationCountry, setLocationCountry] = useState('')
@@ -41,41 +43,85 @@ export default function ProfilePage() {
     if (user) {
       loadProfile()
     }
-  }, [user, authLoading])
+  }, [user, authLoading, router])
 
   const loadProfile = async () => {
     try {
-      const data = await getProfile()
-      if (data) {
-        setProfile(data)
-        setDisplayName(data.display_name || '')
-        setLocationCountry(data.location_country || '')
-        setLocationCity(data.location_city || '')
-        setReadingLevel(data.reading_level || 'standard')
-        setSelectedInterests(data.interests || [])
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist - show setup form
+        setIsNewProfile(true)
+        setDisplayName(user.email?.split('@')[0] || '')
+      } else if (error) {
+        throw error
+      } else if (profile) {
+        // Profile exists - load data
+        setProfile(profile)
+        setDisplayName(profile.display_name || '')
+        setLocationCountry(profile.location_country || '')
+        setLocationCity(profile.location_city || '')
+        setReadingLevel(profile.reading_level || 'standard')
+        setSelectedInterests(profile.interests || [])
       }
     } catch (error) {
       toast.error('Failed to load profile')
+      console.error('Profile load error:', error)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSave = async () => {
+    if (!displayName.trim()) {
+      toast.error('Please enter a display name')
+      return
+    }
+
     setSaving(true)
     
     try {
-      await updateProfile({
+      const profileData = {
+        user_id: user.id,
         display_name: displayName,
         location_country: locationCountry,
         location_city: locationCity,
         reading_level: readingLevel,
         interests: selectedInterests,
-      })
-      
-      toast.success('Profile updated successfully')
+      }
+
+      if (isNewProfile) {
+        // Create new profile
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .insert(profileData)
+          .select()
+          .single()
+        
+        if (error) throw error
+        setProfile(data)
+        setIsNewProfile(false)
+        toast.success('Profile created successfully!')
+      } else {
+        // Update existing profile
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .update(profileData)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+        
+        if (error) throw error
+        setProfile(data)
+        toast.success('Profile updated successfully!')
+      }
     } catch (error) {
-      toast.error('Failed to update profile')
+      toast.error('Failed to save profile')
+      console.error('Save error:', error)
     } finally {
       setSaving(false)
     }
@@ -97,9 +143,23 @@ export default function ProfilePage() {
     )
   }
 
+  if (!user) {
+    return null
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-8">Your Profile</h1>
+      <h1 className="text-3xl font-bold mb-8">
+        {isNewProfile ? 'Complete Your Profile' : 'Your Profile'}
+      </h1>
+      
+      {isNewProfile && (
+        <div className="mb-6 p-4 bg-primary/10 rounded-lg">
+          <p className="text-sm">
+            Welcome to Grasp! Let's set up your profile to personalize your news experience.
+          </p>
+        </div>
+      )}
       
       <div className="grid gap-6">
         {/* Basic Information */}
@@ -112,12 +172,13 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name</Label>
+              <Label htmlFor="displayName">Display Name *</Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="How should we call you?"
+                required
               />
             </div>
             
@@ -217,7 +278,7 @@ export default function ProfilePage() {
           className="w-full md:w-auto md:self-start"
         >
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Changes
+          {isNewProfile ? 'Create Profile' : 'Save Changes'}
         </Button>
       </div>
     </div>
