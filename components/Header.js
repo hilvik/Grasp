@@ -1,9 +1,14 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Globe, Newspaper, User, Menu } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function Header() {
+  const { user, signOut } = useAuth()
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
@@ -26,20 +31,35 @@ export default function Header() {
               <Globe className="h-4 w-4" />
               <span>Map</span>
             </Link>
-            <Link href="/profile" className="flex items-center space-x-1 text-sm font-medium hover:text-primary transition-colors">
-              <User className="h-4 w-4" />
-              <span>Profile</span>
-            </Link>
+            {user && (
+              <Link href="/profile" className="flex items-center space-x-1 text-sm font-medium hover:text-primary transition-colors">
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+            )}
           </nav>
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center space-x-2">
-            <Button variant="ghost" asChild>
-              <Link href="/auth/login">Login</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/auth/signup">Sign Up</Link>
-            </Button>
+            {user ? (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {user.email}
+                </span>
+                <Button variant="ghost" onClick={signOut}>
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link href="/auth/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/auth/signup">Sign Up</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu */}
@@ -59,17 +79,32 @@ export default function Header() {
                   <Globe className="h-5 w-5" />
                   <span>Map</span>
                 </Link>
-                <Link href="/profile" className="flex items-center space-x-2 text-lg">
-                  <User className="h-5 w-5" />
-                  <span>Profile</span>
-                </Link>
+                {user && (
+                  <Link href="/profile" className="flex items-center space-x-2 text-lg">
+                    <User className="h-5 w-5" />
+                    <span>Profile</span>
+                  </Link>
+                )}
                 <div className="pt-4 space-y-2">
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href="/auth/login">Login</Link>
-                  </Button>
-                  <Button className="w-full" asChild>
-                    <Link href="/auth/signup">Sign Up</Link>
-                  </Button>
+                  {user ? (
+                    <>
+                      <p className="text-sm text-muted-foreground px-2">
+                        {user.email}
+                      </p>
+                      <Button variant="outline" className="w-full" onClick={signOut}>
+                        Logout
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" className="w-full" asChild>
+                        <Link href="/auth/login">Login</Link>
+                      </Button>
+                      <Button className="w-full" asChild>
+                        <Link href="/auth/signup">Sign Up</Link>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </SheetContent>

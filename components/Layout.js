@@ -1,5 +1,8 @@
+'use client'
+
 import Header from './Header'
 import Footer from './Footer'
+import { Toaster } from '@/components/ui/sonner'
 
 export default function Layout({ children }) {
   return (
@@ -9,6 +12,7 @@ export default function Layout({ children }) {
         {children}
       </main>
       <Footer />
+      <Toaster />
     </div>
   )
 }
