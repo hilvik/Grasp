@@ -37,6 +37,9 @@ module.exports = {
       borderRadius: {
         DEFAULT: 'var(--radius)',
       },
+      animation: {
+        'spin-slow': 'spin 10s linear infinite',
+      },
     },
   },
   plugins: [],

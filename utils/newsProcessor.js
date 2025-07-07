@@ -50,7 +50,7 @@ export async function storeArticles(articles) {
   // Remove the 'raw_data' field before insertion if it exists
   const articlesToInsert = newArticles.map(article => ({
     title: article.title,
-    original_content: article.original_content,
+    original_content: article.original_content || article.content,
     simplified_content: article.simplified_content,
     summary: article.summary,
     source_name: article.source_name,
@@ -64,7 +64,7 @@ export async function storeArticles(articles) {
     longitude: article.longitude,
     sentiment_score: article.sentiment_score,
     importance_score: article.importance_score,
-    image_url: article.image_url, // Include image_url
+    image_url: article.image_url,
   }));
 
   const { data, error } = await supabaseAdmin
@@ -91,28 +91,32 @@ export async function storeArticles(articles) {
  * @returns {Promise<{data: Array<Object>, count: number}>} A promise that resolves to an object containing an array of article objects and the total count.
  */
 export async function fetchArticles({ category, country_code, limit = 20, offset = 0 }) {
-  let query = supabaseAdmin
-    .from('news_articles')
-    .select('*, count()', { count: 'exact' })
-    .order('published_at', { ascending: false })
-    .limit(limit)
-    .range(offset, offset + limit - 1);
+  try {
+    const params = new URLSearchParams({
+      limit,
+      offset,
+    });
 
-  if (category) {
-    query = query.eq('category', category);
-  }
-  if (country_code) {
-    query = query.eq('country_code', country_code);
-  }
+    if (category) {
+      params.append('category', category);
+    }
+    if (country_code) {
+      params.append('country_code', country_code);
+    }
 
-  const { data, error, count } = await query;
+    const response = await fetch(`/api/articles?${params.toString()}`);
 
-  if (error) {
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch articles');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
     console.error('Error fetching articles:', error);
     return { data: [], count: 0 };
   }
-
-  return { data, count };
 }
 
 /**
@@ -157,4 +161,72 @@ export async function searchArticles(query, limit = 20, offset = 0) {
   }
 
   return data;
+}
+
+/**
+ * Updates sentiment score for an article.
+ * @param {string} id - The ID of the article to update.
+ * @param {number} sentimentScore - The sentiment score to set.
+ * @returns {Promise<Object|null>} The updated article or null if error.
+ */
+export async function updateArticleSentiment(id, sentimentScore) {
+  const { data, error } = await supabaseAdmin
+    .from('news_articles')
+    .update({ sentiment_score: sentimentScore })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error(`Error updating sentiment for article ${id}:`, error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Gets article statistics for the dashboard.
+ * @returns {Promise<Object>} Statistics about the articles in the database.
+ */
+export async function getArticleStats() {
+  try {
+    // Total articles
+    const { count: totalCount } = await supabaseAdmin
+      .from('news_articles')
+      .select('*', { count: 'exact', head: true });
+
+    // Articles by category
+    const { data: categoryData } = await supabaseAdmin
+      .from('news_articles')
+      .select('category')
+      .not('category', 'is', null);
+
+    const categoryCounts = {};
+    categoryData?.forEach(item => {
+      categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+    });
+
+    // Recent articles (last 24 hours)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const { count: recentCount } = await supabaseAdmin
+      .from('news_articles')
+      .select('*', { count: 'exact', head: true })
+      .gte('published_at', yesterday.toISOString());
+
+    return {
+      total: totalCount || 0,
+      recent: recentCount || 0,
+      byCategory: categoryCounts,
+    };
+  } catch (error) {
+    console.error('Error getting article stats:', error);
+    return {
+      total: 0,
+      recent: 0,
+      byCategory: {},
+    };
+  }
 }
