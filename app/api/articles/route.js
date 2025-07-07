@@ -11,9 +11,8 @@ export async function GET(request) {
   try {
     let query = supabaseAdmin
       .from('news_articles')
-      .select('*, count()', { count: 'exact' })
+      .select('*', { count: 'exact' })  // Fixed: removed 'count()' from select
       .order('published_at', { ascending: false })
-      .limit(limit)
       .range(offset, offset + limit - 1);
 
     if (category) {
@@ -30,7 +29,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch articles', details: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data, count });
+    return NextResponse.json({ data: data || [], count: count || 0 });
   } catch (error) {
     console.error('Error in articles API route:', error);
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
