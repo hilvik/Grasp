@@ -32,10 +32,16 @@ export default function Header() {
               <span>Map</span>
             </Link>
             {user && (
-              <Link href="/profile" className="flex items-center space-x-1 text-sm font-medium hover:text-primary transition-colors">
-                <User className="h-4 w-4" />
-                <span>Profile</span>
-              </Link>
+              <>
+                <Link href="/profile" className="flex items-center space-x-1 text-sm font-medium hover:text-primary transition-colors">
+                  <User className="h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
+                <Link href="/admin" className="flex items-center space-x-1 text-sm font-medium hover:text-primary transition-colors">
+                  <Globe className="h-4 w-4" />
+                  <span>Admin</span>
+                </Link>
+              </>
             )}
           </nav>
 
@@ -80,10 +86,16 @@ export default function Header() {
                   <span>Map</span>
                 </Link>
                 {user && (
-                  <Link href="/profile" className="flex items-center space-x-2 text-lg">
-                    <User className="h-5 w-5" />
-                    <span>Profile</span>
-                  </Link>
+                  <>
+                    <Link href="/profile" className="flex items-center space-x-2 text-lg">
+                      <User className="h-5 w-5" />
+                      <span>Profile</span>
+                    </Link>
+                    <Link href="/admin" className="flex items-center space-x-2 text-lg">
+                      <Globe className="h-5 w-5" />
+                      <span>Admin</span>
+                    </Link>
+                  </>
                 )}
                 <div className="pt-4 space-y-2">
                   {user ? (
